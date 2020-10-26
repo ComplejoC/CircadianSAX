@@ -1,0 +1,545 @@
+---
+title: "S.A.X Circadian Analysis"
+author: "Sofía Meléndez Cartagena"
+date: "9/30/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Rationale
+We want to capture the shape of our data
+
+## Libraries
+```{r}
+library(jmotif)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+library(class)
+```
+
+```{r}
+library(caret)
+```
+
+## Data
+```{r}
+BeeMonitors <- read.csv("../TestData/LassioglosumCombinedF.csv", header = FALSE)
+head(BeeMonitors)
+```
+
+```{r}
+Classifications <- read.csv(file = "../TestData/GroundTruth.csv")
+```
+
+
+## Variables  for S.A.X
+```{r, size of the sliding window}
+sizeOFword <- 48
+```
+We are making this 48 as we want the window to be the size of a day. Our data is grouped in 30 min bins, so 48 == 1 day
+
+```{r, Piece wise agregate size or word size}
+PAsize24 <- 24
+PAsize12 <- 12
+PAsize6 <- 6
+PAsize3 <- 3
+```
+
+```{r, alphabet size}
+AlfaSize3 <- 3
+AlfaSize4 <- 4
+AlfaSize5 <- 5
+```
+
+## Helper Variables
+```{r, Holds the words transforms}
+MonitorWordBag <- data.frame()
+```
+
+```{r}
+MonitorList <- list()
+```
+
+```{r,List for weighted tfidf}
+name <- vector()
+for (i in 1:98) {
+  name[i] <- paste("IND", i)}
+```
+
+
+## Funtions
+```{r,Individual generator function}
+IndividualGenerator <- function(x){ #makes the individuals
+  Holder <- ts(x)
+  Holder <- t(Holder)
+  
+  return(Holder)
+}
+```
+
+## Transformation time
+
+```{r, Bag of Words}
+for (i in 1:ncol(BeeMonitors) ) {
+	x <- manyseries_to_wordbag(IndividualGenerator(BeeMonitors[,i]), sizeOFword, PAsize24, AlfaSize3,
+		nr_strategy = "exact", n_threshold = 0.01)
+	MonitorWordBag <- x
+	MonitorList[i] <- list(MonitorWordBag)
+}
+names(MonitorList) <- name
+```
+
+## Monitor Weights
+
+```{r}
+weightedMonitors <- bags_to_tfidf(MonitorList)
+head(weightedMonitors)
+```
+
+
+
+#KNN prep
+
+We are randomly sampling 90% of the individuals. First set the seed for reproducibility.
+
+```{r}
+set.seed(100)
+```
+
+Sample
+```{r}
+ranMemb <- sample(1:ncol(weightedMonitors[,-1]), ncol(weightedMonitors[,-1])* 0.9)
+```
+
+remove first columm because it doens't give any significant data and transpose so it's suitable for the algorithm 
+```{r}
+WeightMatrix <- t(weightedMonitors[,-1])
+```
+
+
+Separate the data in training and testing
+
+```{r}
+train <- WeightMatrix[ranMemb,]
+```
+
+```{r}
+test <- WeightMatrix[-ranMemb,]
+```
+
+Seperate the lables
+```{r}
+TainLabs <- Classifications$Class[ranMemb]
+```
+
+```{r}
+TestLabs <- Classifications$Class[-ranMemb]
+```
+
+## KNN time
+
+predict
+```{r}
+pre <- knn(train, test, cl = TainLabs, k = 3)
+```
+
+Make Confusion Matrix
+
+```{r}
+confusionMatrix(data = pre, reference = as.factor(TestLabs), mode = "prec_recall") 
+```
+ 
+## Oservations
+Many individuals in the transformation  are composed exclusevly of unique words. This may cause  the predictebility to be less acurate. We are going to test different PAA sizes and see if this allows for more repeated patterns
+
+## Transformation time with PAA = 12
+
+```{r, Bag of Words}
+for (i in 1:ncol(BeeMonitors) ) {
+	x <- manyseries_to_wordbag(IndividualGenerator(BeeMonitors[,i]), sizeOFword, PAsize12, AlfaSize3,
+		nr_strategy = "", n_threshold = 0.01)
+	MonitorWordBag <- x
+	MonitorList[i] <- list(MonitorWordBag)
+}
+names(MonitorList) <- name
+```
+
+## Monitor Weights
+
+```{r}
+weightedMonitors <- bags_to_tfidf(MonitorList)
+head(weightedMonitors)
+```
+
+
+
+#KNN prep
+
+We are randomly sampling 90% of the individuals. First set the seed for reproducibility.
+
+```{r}
+set.seed(100)
+```
+
+Sample
+```{r}
+ranMemb <- sample(1:ncol(weightedMonitors[,-1]), ncol(weightedMonitors[,-1])* 0.9)
+```
+
+remove first columm because it doens't give any significant data and transpose so it's suitable for the algorithm 
+```{r}
+WeightMatrix <- t(weightedMonitors[,-1])
+```
+
+
+Separate the data in training and testing
+
+```{r}
+train <- WeightMatrix[ranMemb,]
+```
+
+```{r}
+test <- WeightMatrix[-ranMemb,]
+```
+
+Seperate the lables
+```{r}
+TainLabs <- Classifications$Class[ranMemb]
+```
+
+```{r}
+TestLabs <- Classifications$Class[-ranMemb]
+```
+
+## KNN time
+
+predict
+```{r}
+pre <- knn(train, test, cl = TainLabs, k = 3)
+```
+
+Make Confusion Matrix
+
+```{r}
+confusionMatrix(data = pre, reference = as.factor(TestLabs), mode = "prec_recall") 
+```
+## Transformation time PAA = 6
+
+```{r, Bag of Words}
+for (i in 1:ncol(BeeMonitors) ) {
+	x <- manyseries_to_wordbag(IndividualGenerator(BeeMonitors[,i]), sizeOFword, PAsize6, AlfaSize3,
+		nr_strategy = "", n_threshold = 0.01)
+	MonitorWordBag <- x
+	MonitorList[i] <- list(MonitorWordBag)
+}
+names(MonitorList) <- name
+```
+
+## Monitor Weights
+
+```{r}
+weightedMonitors <- bags_to_tfidf(MonitorList)
+head(weightedMonitors)
+```
+
+
+
+#KNN prep
+
+We are randomly sampling 90% of the individuals. First set the seed for reproducibility.
+
+```{r}
+set.seed(100)
+```
+
+Sample
+```{r}
+ranMemb <- sample(1:ncol(weightedMonitors[,-1]), ncol(weightedMonitors[,-1])* 0.9)
+```
+
+remove first columm because it doens't give any significant data and transpose so it's suitable for the algorithm 
+```{r}
+WeightMatrix <- t(weightedMonitors[,-1])
+```
+
+
+Separate the data in training and testing
+
+```{r}
+train <- WeightMatrix[ranMemb,]
+```
+
+```{r}
+test <- WeightMatrix[-ranMemb,]
+```
+
+Seperate the lables
+```{r}
+TainLabs <- Classifications$Class[ranMemb]
+```
+
+```{r}
+TestLabs <- Classifications$Class[-ranMemb]
+```
+
+## KNN time
+
+predict
+```{r}
+pre <- knn(train, test, cl = TainLabs, k = 3)
+```
+
+Make Confusion Matrix
+
+```{r}
+confusionMatrix(data = pre, reference = as.factor(TestLabs), mode = "prec_recall") 
+```
+ 
+It would appear that a paa of 6 is the most accurate and precise. I'm going to try with 3 just to make sure, but I'm conffident that it won't get better than this. 
+
+## Transformation time PAA3
+
+```{r, Bag of Words}
+for (i in 1:ncol(BeeMonitors) ) {
+	x <- manyseries_to_wordbag(IndividualGenerator(BeeMonitors[,i]), sizeOFword, PAsize3, AlfaSize3,
+		nr_strategy = "", n_threshold = 0.01)
+	MonitorWordBag <- x
+	MonitorList[i] <- list(MonitorWordBag)
+}
+names(MonitorList) <- name
+```
+
+## Monitor Weights
+
+```{r}
+weightedMonitors <- bags_to_tfidf(MonitorList)
+head(weightedMonitors)
+```
+
+
+
+#KNN prep
+
+We are randomly sampling 90% of the individuals. First set the seed for reproducibility.
+
+```{r}
+set.seed(100)
+```
+
+Sample
+```{r}
+ranMemb <- sample(1:ncol(weightedMonitors[,-1]), ncol(weightedMonitors[,-1])* 0.9)
+```
+
+remove first columm because it doens't give any significant data and transpose so it's suitable for the algorithm 
+```{r}
+WeightMatrix <- t(weightedMonitors[,-1])
+```
+
+
+Separate the data in training and testing
+
+```{r}
+train <- WeightMatrix[ranMemb,]
+```
+
+```{r}
+test <- WeightMatrix[-ranMemb,]
+```
+
+Seperate the lables
+```{r}
+TainLabs <- Classifications$Class[ranMemb]
+```
+
+```{r}
+TestLabs <- Classifications$Class[-ranMemb]
+```
+
+## KNN time
+
+predict
+```{r}
+pre <- knn(train, test, cl = TainLabs, k = 3)
+```
+
+Make Confusion Matrix
+
+```{r}
+confusionMatrix(data = pre, reference = as.factor(TestLabs), mode = "prec_recall") 
+```
+Not only did we not see improvements, it got worse. PAA 6 seems to be wining for now. I'll try to experiment with alphabet size now. I'm currently using 3, the literature would lead to believe that 4 or 5 might work. 
+
+## Transformation time PAA = 6, Alphabet = 4
+
+```{r, Bag of Words}
+for (i in 1:ncol(BeeMonitors) ) {
+	x <- manyseries_to_wordbag(IndividualGenerator(BeeMonitors[,i]), sizeOFword, PAsize6, AlfaSize4,
+		nr_strategy = "", n_threshold = 0.01)
+	MonitorWordBag <- x
+	MonitorList[i] <- list(MonitorWordBag)
+}
+names(MonitorList) <- name
+```
+
+## Monitor Weights
+
+```{r}
+weightedMonitors <- bags_to_tfidf(MonitorList)
+head(weightedMonitors)
+```
+
+
+
+#KNN prep
+
+We are randomly sampling 90% of the individuals. First set the seed for reproducibility.
+
+```{r}
+set.seed(100)
+```
+
+Sample
+```{r}
+ranMemb <- sample(1:ncol(weightedMonitors[,-1]), ncol(weightedMonitors[,-1])* 0.9)
+```
+
+remove first columm because it doens't give any significant data and transpose so it's suitable for the algorithm 
+```{r}
+WeightMatrix <- t(weightedMonitors[,-1])
+```
+
+
+Separate the data in training and testing
+
+```{r}
+train <- WeightMatrix[ranMemb,]
+```
+
+```{r}
+test <- WeightMatrix[-ranMemb,]
+```
+
+Seperate the lables
+```{r}
+TainLabs <- Classifications$Class[ranMemb]
+```
+
+```{r}
+TestLabs <- Classifications$Class[-ranMemb]
+```
+
+## KNN time
+
+predict
+```{r}
+pre <- knn(train, test, cl = TainLabs, k = 3)
+```
+
+Make Confusion Matrix
+
+```{r}
+confusionMatrix(data = pre, reference = as.factor(TestLabs), mode = "prec_recall") 
+```
+
+## Transformation time PAA = 6, alphabet = 5
+
+```{r, Bag of Words}
+for (i in 1:ncol(BeeMonitors) ) {
+	x <- manyseries_to_wordbag(IndividualGenerator(BeeMonitors[,i]), sizeOFword, PAsize6, AlfaSize5,
+		nr_strategy = "", n_threshold = 0.01)
+	MonitorWordBag <- x
+	MonitorList[i] <- list(MonitorWordBag)
+}
+names(MonitorList) <- name
+```
+
+## Monitor Weights
+
+```{r}
+weightedMonitors <- bags_to_tfidf(MonitorList)
+head(weightedMonitors)
+```
+
+
+
+#KNN prep
+
+We are randomly sampling 90% of the individuals. First set the seed for reproducibility.
+
+```{r}
+set.seed(100)
+```
+
+Sample
+```{r}
+ranMemb <- sample(1:ncol(weightedMonitors[,-1]), ncol(weightedMonitors[,-1])* 0.9)
+```
+
+remove first columm because it doens't give any significant data and transpose so it's suitable for the algorithm 
+```{r}
+WeightMatrix <- t(weightedMonitors[,-1])
+```
+
+
+Separate the data in training and testing
+
+```{r}
+train <- WeightMatrix[ranMemb,]
+```
+
+```{r}
+test <- WeightMatrix[-ranMemb,]
+```
+
+Seperate the lables
+```{r}
+TainLabs <- Classifications$Class[ranMemb]
+```
+
+```{r}
+TestLabs <- Classifications$Class[-ranMemb]
+```
+
+## KNN time
+
+predict
+```{r}
+pre <- knn(train, test, cl = TainLabs, k = 3)
+```
+
+Make Confusion Matrix
+
+```{r}
+confusionMatrix(data = pre, reference = as.factor(TestLabs), mode = "prec_recall") 
+```
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
